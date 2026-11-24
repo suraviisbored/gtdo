@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ransomware containment</title>
+<style>
+:root{--paper:#f7ede4;--panel:#fef9f5;--ink:#5f363e;--soft:#81595a;--line:#e6d3c6;--brand:#5f363e;--accent:#a8403a;--red:#b83a32;--blue:#2f6f8f;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 Calibri,Carlito,"Segoe UI",Arial,sans-serif}
+header{padding:22px 18px 16px;background:var(--panel);color:var(--ink);border-bottom:1px solid var(--line)}
+h1{margin:0;font:700 38px/1.05 Calibri,Carlito,"Segoe UI",Arial,sans-serif;letter-spacing:-.01em}
+header p{margin:6px 0 0;color:var(--soft)}
+.cols{display:grid;grid-template-columns:minmax(290px,370px) minmax(0,1fr)}
+.pane{padding:16px 18px}
+.left{background:var(--panel);border-right:1px solid var(--line)}
+@media (max-width:820px){.cols{grid-template-columns:1fr}.left{border-right:0;border-bottom:1px solid var(--line)}}
+.tag{font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--brand);margin:0 0 8px}
+input,textarea,select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:4px 8px;min-width:0;width:100%}
+textarea{display:block;resize:vertical}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
+option{background:var(--paper);color:var(--ink)}
+button{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--brand);border-radius:4px;padding:4px 12px;cursor:pointer;transition:background .15s,color .15s}
+button:hover{background:var(--brand);color:#fff}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.help{color:var(--soft);white-space:pre;overflow-x:auto;margin:6px 0 0;font:12.5px Consolas,"Cascadia Mono",Menlo,monospace}
+#err{color:var(--red);min-height:1.6em;margin:4px 0 0}
+.key{margin:0 0 8px;color:var(--soft);display:flex;flex-wrap:wrap;gap:4px 16px}
+.key i{display:inline-block;width:10px;height:10px;border:1.5px solid var(--ink);margin-right:5px;vertical-align:-1px}
+.k-inf{background:var(--red);border-color:var(--red)!important}
+.k-crit{border-color:var(--blue)!important;border-width:3px!important}
+.k-q{background:repeating-linear-gradient(45deg,var(--ink) 0 1.5px,transparent 1.5px 4px)}
+.k-z{border-color:var(--red)!important;border-style:dashed!important}
+.k-gw{border-radius:0}
+svg{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+.n{fill:var(--panel);stroke:var(--ink);stroke-width:1.5}
+.inf{fill:var(--red);stroke:var(--red)}
+.crit{stroke:var(--blue);stroke-width:3}
+.zone{stroke:var(--red);stroke-dasharray:3 2}
+.q{fill:url(#hatch)}
+.qo{fill:url(#hatch2);stroke:var(--ink);stroke-width:1.5;pointer-events:none}
+.lbl{font:11px Calibri,Carlito,"Segoe UI",Arial,sans-serif;fill:var(--ink);paint-order:stroke;stroke:var(--panel);stroke-width:3px}
+.wrap{overflow-x:auto;margin-top:14px}
+table{border-collapse:collapse;width:100%;min-width:600px}
+th{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--brand);font-weight:700;text-align:left;border-bottom:2px solid var(--brand);padding:4px 8px}
+td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.sel td:first-child{box-shadow:inset 4px 0 var(--red)}
+td button{border:0;padding:0;text-decoration:underline;text-underline-offset:3px;text-align:left}
+td button:hover{background:none;color:var(--red)}
+.yes{font-weight:600}.no{color:var(--red);font-weight:600}
+.note{color:var(--soft);margin:8px 0 0}
+.cap{margin:8px 0 0;min-height:3.2em}
+.f{display:grid;grid-template-columns:78px 1fr;gap:6px 8px;align-items:start}
+.f label{color:var(--soft);font-size:12px;padding-top:4px}
+.bar select{width:auto}
+.tabs{display:flex;flex-wrap:wrap;margin:0 0 8px}
+.tabs button{border-right-width:0}
+.tabs button:last-child{border-right-width:1px}
+.tabs button[aria-pressed=true]{background:var(--brand);color:#fff}
+.log h3{font:700 17px Calibri,Carlito,"Segoe UI",Arial,sans-serif;color:var(--brand);margin:16px 0 4px;border-bottom:1px solid var(--line);padding-bottom:2px}
+.log p{margin:4px 0;padding-left:12px;border-left:2px solid var(--line)}
+.sim{margin:8px 0 10px;min-height:3.4em;padding:6px 10px;border-left:4px solid var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--panel))}
+.hit{fill:transparent;cursor:pointer}
+.hit:hover{stroke:var(--red);stroke-width:2}
+.hit:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.wave{fill:color-mix(in srgb,var(--red) 35%,var(--paper))}
+.go{stroke:var(--red);stroke-width:2.6;stroke-dasharray:6 4;animation:flow .6s linear infinite}
+.pth{stroke:var(--red);stroke-width:4.5;stroke-dasharray:10 5;animation:flow .5s linear infinite;opacity:.9}
+.blk{stroke:var(--red);stroke-width:2.2}
+.xm{stroke:var(--red);stroke-width:2.6;fill:none;pointer-events:none}
+.ew{font:bold 11px Calibri,Carlito,"Segoe UI",Arial,sans-serif;fill:var(--ink);text-anchor:middle;paint-order:stroke;stroke:var(--panel);stroke-width:3.5px;pointer-events:none}
+.ring{fill:none;stroke:var(--red);stroke-width:3;transform-box:fill-box;transform-origin:center;animation:ring .95s ease-out forwards;pointer-events:none}
+.ring.rs{stroke:var(--blue)}
+.ring.try{stroke:var(--ink);stroke-dasharray:3 2}
+.lbl{pointer-events:none}
+@keyframes flow{to{stroke-dashoffset:-30}}
+@keyframes ring{from{transform:scale(1);opacity:1}to{transform:scale(4);opacity:0}}
+@media (prefers-reduced-motion:reduce){.go,.pth{animation:none}.ring{animation:none;opacity:.6;transform:scale(2)}}
+</style>
+</head>
+<body>
+<header>
+<h1>Ransomware containment</h1>
+<p>Describe a network. Get the cheapest set of hosts to quarantine.</p>
+</header>
+<div class="cols">
+<section class="pane left">
+<p class="tag">Input</p>
+<div class="f">
+<label for="inf">Infected</label><input id="inf" spellcheck="false">
+<label for="crit">Critical</label><input id="crit" spellcheck="false">
+<label for="gw">Gateway</label><input id="gw" spellcheck="false">
+<label for="dem">Min Mbps</label><input id="dem" type="number" min="0">
+<label for="costs">Costs</label><textarea id="costs" rows="3" spellcheck="false" placeholder="Core1=8, Switch1=4  (hosts not listed cost 1)"></textarea>
+<label for="links">Links</label><textarea id="links" rows="9" spellcheck="false" placeholder="A B 1000, B C 500  (host host Mbps)"></textarea>
+</div>
+<div class="bar"><select id="size" aria-label="Random network size"><option value="2">small</option><option value="4">medium</option><option value="8">large</option></select><button id="rand">Random</button><button id="sample">Sample</button><button id="clear">Clear</button></div>
+<p id="err" role="alert"></p>
+<p class="note">Separate entries with commas or new lines. A link without a capacity gets 100 Mbps. Click a PC in the graph to mark it infected or clean.</p>
+<p class="tag" style="margin-top:20px">What is happening</p>
+<p id="sim" class="sim" role="status" aria-live="polite"></p>
+</section>
+<section class="pane">
+<p class="tag">Graph</p>
+<div class="key">
+<span><i class="k-inf"></i>infected</span><span><i class="k-crit"></i>critical</span>
+<span><i class="k-q"></i>quarantined</span><span><i class="k-z"></i>infected zone</span><span><i class="k-gw"></i>gateway (square)</span><span>number above a link = capacity (Mbps)</span>
+</div>
+<div id="tabs" class="tabs" role="group" aria-label="Show the result of"></div>
+<div class="bar"><button data-play="0">&#9654; Greedy (BFS)</button><button data-play="1">&#9654; Local search</button><button data-play="2">&#9654; Ford-Fulkerson</button><button data-play="all">&#9654; All three</button><button id="skip">Skip &#9656;&#9656;</button><select id="speed" aria-label="Simulation speed"><option value="1.5">slow</option><option value="0.8" selected>normal</option><option value="0.4">fast</option></select></div>
+<svg id="g" viewBox="0 0 860 520" role="group" aria-label="Network graph for the selected solution. Select a PC to mark it infected or clean.">
+<defs><pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" style="fill:var(--panel)"/><line x1="0" y1="0" x2="0" y2="5" style="stroke:var(--ink);stroke-width:2"/></pattern><pattern id="hatch2" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" style="stroke:var(--ink);stroke-width:1.4"/></pattern></defs>
+<g id="gg"></g>
+</svg>
+<p id="cap" class="cap"></p>
+<div class="wrap"><table id="res"></table></div>
+<p class="note">Exact cut looks at containment only, so it is a lower bound and may not meet the demand.</p>
+<p class="tag" style="margin-top:24px">What happened</p>
+<div id="log" class="log"></div>
+</section>
+</div>
+<script>
+const SAMPLE = `# hosts: name cost
+host Gateway 10
+host Firewall 9
+host Core1 8
+host Core2 8
+host Core3 8
+host Server1 6
+host Server2 6
+host Server3 8
+host Server4 5
+host AppServer1 8
+host AppServer2 7
+host Database 0
+host PaymentServer 0
+host Switch1 6
+host PC1.1 3
+host PC1.2 1
+host PC1.3 9
+host Switch2 4
+host PC2.1 8
+host PC2.2 3
+host PC2.3 8
+
+# links: a b capacity(Mbps)
+link Gateway Firewall 1000
+link Firewall Core1 1000
+link Firewall Core2 1000
+link Firewall Core3 1000
+link Core1 Core2 1000
+link Core1 Core3 1000
+link Server1 Core3 500
+link Server1 Core1 500
+link Server2 Core3 500
+link Server2 Core1 500
+link Server3 Core2 500
+link Server3 Core3 500
+link Server4 Core3 500
+link Server4 Core2 500
+link AppServer1 Core1 1000
+link AppServer1 Core3 1000
+link AppServer2 Core2 1000
+link AppServer2 Core3 1000
+link AppServer1 Database 1000
+link AppServer1 PaymentServer 1000
+link AppServer2 Database 1000
+link AppServer2 PaymentServer 1000
+link Server3 Database 300
+link Server2 Database 300
+link Switch1 Core3 1000
+link Switch1 Core1 1000
+link PC1.1 Switch1 100
+link PC1.2 Switch1 100
+link PC1.3 Switch1 100
+link Switch2 Core1 1000
+link Switch2 Core3 1000
+link PC2.1 Switch2 100
+link PC2.1 Switch1 100
+link PC2.2 Switch2 100
+link PC2.3 Switch2 100
+
+infected PC2.1 PC2.3 PC1.3
+critical Database PaymentServer
+gateway Gateway
+demand 600`;
+
+// ---------- explanation log: every step is written down for the reader ----------
+let LOG = [];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const head = t => LOG.push(`<h3>${t}</h3>`);
+const say = t => LOG.push(`<p>${t}</p>`);
+
+// ---------- 1. read the input text into a graph ----------
+function parse(text) {
+  const g = { cost: new Map(), adj: new Map(), infected: [], critical: [], gateway: null, demand: 0 };
+  const host = (n, c) => {
+    if (!g.adj.has(n)) { g.adj.set(n, new Map()); g.cost.set(n, 1); }
+    if (c !== undefined) g.cost.set(n, c);
+  };
+  const num = (s, fallback, ln) => {
+    if (s === undefined) return fallback;
+    if (isNaN(+s) || +s < 0) throw new Error(`line ${ln}: "${s}" is not a valid number`);
+    return +s;
+  };
+  text.split('\n').forEach((raw, i) => {
+    const ln = i + 1, line = raw.split('#')[0].trim();
+    if (!line) return;
+    const [cmd, ...a] = line.split(/\s+/);
+    switch (cmd.toLowerCase()) {
+      case 'host': host(a[0], num(a[1], 1, ln)); break;
+      case 'link':
+        if (a.length < 2 || a[0] === a[1]) throw new Error(`line ${ln}: a link needs two different hosts`);
+        host(a[0]); host(a[1]);
+        { const c = num(a[2], 100, ln); g.adj.get(a[0]).set(a[1], c); g.adj.get(a[1]).set(a[0], c); }
+        break;
+      case 'infected': a.forEach(h => { host(h); g.infected.push(h); }); break;
+      case 'critical': a.forEach(h => { host(h); g.critical.push(h); }); break;
+      case 'gateway': host(a[0]); g.gateway = a[0]; break;
+      case 'demand': g.demand = num(a[0], 0, ln); break;
+      default: throw new Error(`line ${ln}: unknown command "${cmd}"`);
+    }
+  });
+  if (g.adj.size === 0) throw new Error('add some hosts and links');
+  if (!g.critical.length) throw new Error('mark at least one critical host');
+  if (!g.gateway) throw new Error('set a gateway');
+  if (g.infected.some(h => g.critical.includes(h))) throw new Error('a host cannot be both infected and critical');
+  return g;
+}
+
+// ---------- 2. BFS: what can the infection reach? ----------
+function reach(g, Q) {
+  const queue = g.infected.filter(h => !Q.has(h)), seen = new Set(queue);
+  for (const u of queue)
+    for (const v of g.adj.get(u).keys())
+      if (!Q.has(v) && !seen.has(v)) { seen.add(v); queue.push(v); }
+  return seen;
+}
+const contained = (g, Q) => { const z = reach(g, Q); return !g.critical.some(c => z.has(c)); };
+
+function infectionPath(g, Q) {
+  const parent = new Map(), queue = [];
+  for (const s of g.infected) if (!Q.has(s)) { parent.set(s, null); queue.push(s); }
+  for (const u of queue) {
+    if (g.critical.includes(u)) { const p = []; for (let x = u; x !== null; x = parent.get(x)) p.push(x); return p; }
+    for (const v of g.adj.get(u).keys())
+      if (!Q.has(v) && !parent.has(v)) { parent.set(v, u); queue.push(v); }
+  }
+  return null;
+}
+
+// ---------- 3. Ford-Fulkerson (Edmonds-Karp) ----------
+function maxFlow(cap, s, t, log) {
+  let flow = 0;
+  for (;;) {
+    const parent = new Map([[s, null]]), queue = [s];
+    for (const u of queue)
+      for (const [v, c] of cap.get(u) || [])
+        if (c > 0 && !parent.has(v)) { parent.set(v, u); queue.push(v); }
+    if (!parent.has(t)) return flow;
+    let b = Infinity;
+    for (let v = t; parent.get(v) !== null; v = parent.get(v)) b = Math.min(b, cap.get(parent.get(v)).get(v));
+    if (log) { const p = []; for (let v = t; v !== null; v = parent.get(v)) p.unshift(v); log.push({ path: p, b }); }
+    for (let v = t; parent.get(v) !== null; v = parent.get(v)) {
+      const u = parent.get(v);
+      cap.get(u).set(v, cap.get(u).get(v) - b);
+      cap.get(v).set(u, (cap.get(v).get(u) || 0) + b);
+    }
+    flow += b;
+  }
+}
+function arc(cap, u, v, c) {
+  if (!cap.has(u)) cap.set(u, new Map());
+  if (!cap.has(v)) cap.set(v, new Map());
+  cap.get(u).set(v, c);
+}
+
+// capacity left from the gateway to the critical hosts, using only clean hosts
+function service(g, Q) {
+  const dead = new Set([...Q, ...reach(g, Q)]);
+  if (dead.has(g.gateway)) return 0;
+  const cap = new Map();
+  for (const [u, nb] of g.adj) if (!dead.has(u)) for (const [v, c] of nb) if (!dead.has(v)) arc(cap, u, v, c);
+  for (const c of g.critical) if (!dead.has(c)) arc(cap, c, 'SINK', Infinity);
+  return maxFlow(cap, g.gateway, 'SINK');
+}
+
+// exact cheapest containment: split every host into in/out joined by an arc of capacity = its cost
+function exactCut(g, log) {
+  const cap = new Map();
+  for (const [h] of g.adj) arc(cap, h + '#in', h + '#out', g.critical.includes(h) ? Infinity : g.cost.get(h));
+  for (const [u, nb] of g.adj) for (const v of nb.keys()) arc(cap, u + '#out', v + '#in', Infinity);
+  g.infected.forEach(h => arc(cap, 'SRC', h + '#in', Infinity));
+  g.critical.forEach(h => arc(cap, h + '#out', 'SINK', Infinity));
+  maxFlow(cap, 'SRC', 'SINK', log);
+  const seen = new Set(['SRC']), queue = ['SRC'];
+  for (const u of queue) for (const [v, c] of cap.get(u) || []) if (c > 0 && !seen.has(v)) { seen.add(v); queue.push(v); }
+  const cut = new Set([...g.adj.keys()].filter(h => seen.has(h + '#in') && !seen.has(h + '#out')));
+  say(`Max flow equals min cut. The cheapest set that separates the infection from the critical hosts is <b>${[...cut].map(esc).join(', ') || 'none'}</b> (cost ${totalCost(g, cut)}). It ignores the service demand, so it is only a lower bound.`);
+  return cut;
+}
+
+// ---------- 4. initial solution and local search ----------
+const totalCost = (g, Q) => [...Q].reduce((s, h) => s + g.cost.get(h), 0);
+const score = (g, Q) => totalCost(g, Q) + Math.max(0, g.demand - service(g, Q));
+
+function greedy(g) {                       // cheapest host on each infection path
+  const Q = new Set();
+  for (let p; (p = infectionPath(g, Q)); ) {
+    const options = p.filter(h => !g.critical.includes(h)).sort((a, b) => g.cost.get(a) - g.cost.get(b));
+    say(`Infection can reach <b>${esc(p[0])}</b> along ${[...p].reverse().map(esc).join(' → ')}. The cheapest host on that path is <b>${esc(options[0])}</b> (cost ${g.cost.get(options[0])}), so it is quarantined.`);
+    Q.add(options[0]);
+  }
+  say(`No infection path to a critical host remains. Initial cost: <b>${totalCost(g, Q)}</b>.`);
+  return Q;
+}
+function localSearch(g, start, trace) {           // drop a host, or swap one host for another
+  let Q = new Set(start), best = score(g, Q), steps = 0;
+  say(`Starting from the initial set. Score = isolation cost plus 1 per Mbps of missing service = <b>${best}</b>.`);
+  for (;;) {
+    const options = [];
+    for (const u of Q) {
+      options.push(new Set([...Q].filter(h => h !== u)));
+      for (const v of g.adj.keys())
+        if (!Q.has(v) && !g.critical.includes(v)) options.push(new Set([...Q].filter(h => h !== u).concat(v)));
+    }
+    const before = best;
+    let move = null;
+    for (const o of options) if (contained(g, o) && score(g, o) < best) { best = score(g, o); move = o; }
+    if (!move) { say(`No drop or swap lowers the score any further, so the search stops at cost <b>${totalCost(g, Q)}</b> after ${steps} improving move${steps === 1 ? '' : 's'}.`); return Q; }
+    const out = [...Q].filter(h => !move.has(h)), inn = [...move].filter(h => !Q.has(h));
+    say(inn.length ? `Swap <b>${esc(out[0])}</b> for <b>${esc(inn[0])}</b>: containment still holds and the score falls ${before} → ${best}.` : `Drop <b>${esc(out[0])}</b>: containment still holds and the score falls ${before} → ${best}.`);
+    if (trace) trace.push({ out, inn, to: move, before, after: best });
+    steps++;
+    Q = move;
+  }
+}
+
+// ---------- 5. layout and drawing ----------
+function layout(g) {
+  const layer = new Map([[g.gateway, 0]]), queue = [g.gateway];
+  for (const u of queue) for (const v of g.adj.get(u).keys()) if (!layer.has(v)) { layer.set(v, layer.get(u) + 1); queue.push(v); }
+  const far = Math.max(...layer.values()) + 1;
+  for (const h of g.adj.keys()) if (!layer.has(h)) layer.set(h, far);   // hosts not reachable from the gateway
+  const cols = [];
+  for (const [h, l] of layer) (cols[l] = cols[l] || []).push(h);
+  const pos = new Map(), last = Math.max(cols.length - 1, 1);
+  cols.forEach((col, l) => col.forEach((h, i) => pos.set(h, [70 + l * 640 / last, 20 + (i + 0.5) * 480 / col.length])));
+  return pos;
+}
+let G, POS, RESULTS = [], PICK = 1, PREV = null;
+const isPC = h => /^(infected[-_ ]?)?pc/i.test(h);
+const canClick = h => isPC(h) || G.infected.includes(h);
+
+const cross = (x, y) => `<path class="xm" d="M${x - 4} ${y - 4}L${x + 4} ${y + 4}M${x - 4} ${y + 4}L${x + 4} ${y - 4}"/>`;
+function draw(fr) {
+  const Q = fr ? fr.Q : RESULTS[PICK].Q, zone = fr ? fr.wave : reach(G, Q);
+  const P = h => POS.get(h), pts = (u, v) => `x1="${P(u)[0]}" y1="${P(u)[1]}" x2="${P(v)[0]}" y2="${P(v)[1]}"`;
+  let s = '';
+  for (const [u, nb] of G.adj) for (const [v, c] of nb) if (u < v) {
+    const off = Q.has(u) || Q.has(v);
+    s += `<line ${pts(u, v)} style="stroke:var(--ink);stroke-width:${(0.5 + Math.sqrt(c) / 9).toFixed(1)};opacity:${off ? 0.2 : 0.7}"${off ? ' stroke-dasharray="3 3"' : ''}/>`;
+  }
+  if (fr) {                                   // simulation overlay: spreading, blocked links, cut links
+    if (fr.path) for (let i = 1; i < fr.path.length; i++) if (G.adj.get(fr.path[i - 1]).has(fr.path[i])) s += `<line class="pth" ${pts(fr.path[i - 1], fr.path[i])}/>`;
+    for (const [u, v, k] of fr.probe) {
+      if (k === 'go') { s += `<line class="go" ${pts(u, v)}/>`; continue; }
+      const mx = P(u)[0] + (P(v)[0] - P(u)[0]) * 0.75, my = P(u)[1] + (P(v)[1] - P(u)[1]) * 0.75;
+      s += `<line class="blk" x1="${P(u)[0]}" y1="${P(u)[1]}" x2="${mx}" y2="${my}"/>${cross(mx, my)}`;
+    }
+    for (const f of fr.flash) if (f.type === 'cut') for (const v of G.adj.get(f.h).keys())
+      s += cross(P(f.h)[0] + (P(v)[0] - P(f.h)[0]) * 0.3, P(f.h)[1] + (P(v)[1] - P(f.h)[1]) * 0.3);
+  }
+  for (const [u, nb] of G.adj) for (const [v, c] of nb) if (u < v) {          // link capacity (Mbps), drawn just above its link
+    let k = 0; for (const ch of u + v) k = (k * 31 + ch.charCodeAt(0)) % 97;
+    const t = 0.42 + (k % 5) * 0.04, off = Q.has(u) || Q.has(v);
+    const dx = P(v)[0] - P(u)[0], dy = P(v)[1] - P(u)[1], len = Math.hypot(dx, dy) || 1;
+    let nx = -dy / len, ny = dx / len;
+    if (ny > 0) { nx = -nx; ny = -ny; }                                  // normal that points up
+    if (Math.abs(ny) < 0.2 && nx < 0) { nx = -nx; ny = -ny; }            // near-vertical link: label on its right
+    s += `<text class="ew" style="opacity:${off ? 0.45 : 1}" x="${(P(u)[0] + dx * t + nx * 9).toFixed(1)}" y="${(P(u)[1] + dy * t + ny * 9 + 3).toFixed(1)}">${c}</text>`;
+  }
+  for (const h of G.adj.keys()) {
+    const [x, y] = P(h);
+    let cls = 'n';
+    if (G.infected.includes(h)) cls += ' inf';
+    else if (zone.has(h)) cls += fr ? ' zone wave' : ' zone';
+    if (G.critical.includes(h)) cls += ' crit';
+    if (Q.has(h)) cls = G.infected.includes(h) ? 'n inf' : 'n q';   // infected stays red even when quarantined
+    s += h === G.gateway
+      ? `<rect class="${cls}" x="${x - 8}" y="${y - 8}" width="16" height="16"/>`
+      : `<circle class="${cls}" cx="${x}" cy="${y}" r="8"/>`;
+    if (Q.has(h) && G.infected.includes(h)) s += `<circle class="qo" cx="${x}" cy="${y}" r="8"/>`;   // hatch laid over the red fill
+    const ang = [...G.adj.get(h).keys()].map(v => Math.atan2(P(v)[1] - y, P(v)[0] - x));
+    let best = 0, bs = -1;
+    for (const a of [0, Math.PI / 2, -Math.PI / 2, Math.PI / 4, -Math.PI / 4, Math.PI, 3 * Math.PI / 4, -3 * Math.PI / 4]) {
+      const sc = ang.length ? Math.min(...ang.map(t => { const d = Math.abs(a - t) % (2 * Math.PI); return d > Math.PI ? 2 * Math.PI - d : d; })) : 9;
+      if (sc > bs + 1e-9) { bs = sc; best = a; }
+    }
+    const cx = Math.cos(best), cy = Math.sin(best);
+    s += `<text class="lbl" text-anchor="${cx > 0.4 ? 'start' : cx < -0.4 ? 'end' : 'middle'}" x="${x + cx * 14}" y="${y + cy * 14 + (cy > 0.4 ? 8 : cy < -0.4 ? -2 : 3)}">${esc(h)}</text>`;
+  }
+  if (fr) for (const f of fr.flash) s += `<circle class="ring ${f.type === 'restore' ? 'rs' : f.type === 'try' ? 'try' : ''}" cx="${P(f.h)[0]}" cy="${P(f.h)[1]}" r="8"/>`;
+  for (const h of G.adj.keys()) {             // invisible, larger click targets on top of everything
+    if (!canClick(h)) continue;
+    const bad = G.infected.includes(h), crit = G.critical.includes(h);
+    s += `<circle class="hit" data-h="${esc(h)}" cx="${P(h)[0]}" cy="${P(h)[1]}" r="13" tabindex="0" role="button" aria-label="${esc(h)}, ${bad ? 'infected' : 'clean'}. Press to ${crit ? 'see why it cannot be infected' : bad ? 'mark clean' : 'mark infected'}"><title>${esc(h)}: ${crit ? 'critical host (cannot be marked infected)' : bad ? 'infected - click to mark clean' : 'clean - click to mark infected'}</title></circle>`;
+  }
+  document.getElementById('gg').innerHTML = s;
+  if (fr) { document.getElementById('cap').innerHTML = ''; return; }
+  const left = [...G.adj.keys()].filter(h => !Q.has(h) && !zone.has(h)).length;
+  const list = zone.size <= 12 ? ` (${[...zone].map(esc).join(', ')})` : '';
+  document.getElementById('cap').innerHTML = `Showing <b>${RESULTS[PICK].name}</b>: ${Q.size ? [...Q].map(esc).join(', ') + ' quarantined' : 'nothing quarantined'}. The infected zone has ${zone.size} host${zone.size === 1 ? '' : 's'}${list}; ${G.critical.some(c => zone.has(c)) ? '<b class="no">a critical host is still exposed</b>' : 'no critical host can be reached'}. ${left} other host${left === 1 ? '' : 's'} stay operational.`;
+}
+function table() {
+  document.getElementById('tabs').innerHTML = ['Initial · greedy', 'Improved · local search', 'Exact · max-flow cut']
+    .map((t, i) => `<button data-i="${i}" aria-pressed="${i === PICK}">${t}</button>`).join('');
+  const rows = RESULTS.map((r, i) => `<tr class="${i === PICK ? 'sel' : ''}"><td><button data-i="${i}">${r.name}</button></td>
+    <td>${[...r.Q].map(esc).join(', ') || '–'}</td><td>${r.cost}</td><td>${r.svc}</td>
+    <td class="${r.svc >= G.demand ? 'yes' : 'no'}">${r.svc >= G.demand ? 'met' : 'not met'}</td><td>${r.ms.toFixed(1)} ms</td></tr>`).join('');
+  document.getElementById('res').innerHTML =
+    `<tr><th>Method</th><th>Quarantine</th><th>Cost</th><th>Service Mbps</th><th>Demand</th><th>Time</th></tr>${rows}`;
+  document.querySelectorAll('#res button, #tabs button').forEach(b => b.onclick = () => { stopSim(); document.getElementById('sim').innerHTML = ''; PICK = +b.dataset.i; table(); draw(); });
+}
+
+// ---------- 6. run everything whenever the input changes ----------
+function run() {
+  stopSim();
+  const err = document.getElementById('err');
+  try { G = parse(formText()); } catch (e) { err.textContent = e.message.replace(/^line \d+: /, ''); return; }
+  err.textContent = '';
+  const links = [...G.adj.values()].reduce((s, m) => s + m.size, 0) / 2;
+  LOG = [];
+  head('Reading your input');
+  say(`<b>${G.adj.size}</b> hosts and <b>${links}</b> links. Infected: ${G.infected.map(esc).join(', ')}. Critical: ${G.critical.map(esc).join(', ')}. Gateway: ${esc(G.gateway)}. Minimum service demand: ${G.demand} Mbps. Quarantining a host removes it and all its links; critical hosts cannot be quarantined.`);
+  const time = f => { const t = performance.now(), Q = f(); return [Q, performance.now() - t]; };
+  head('Step 1 – Initial solution (BFS + greedy)');
+  const [Q1, t1] = time(() => greedy(G));
+  TR = { moves: [], flow: [] };
+  head('Step 2 – Improvement (local search)');
+  const [Q2, t2] = time(() => localSearch(G, Q1, TR.moves));
+  head('Step 3 – Exact cheapest cut (Ford-Fulkerson)');
+  const [Q3, t3] = time(() => exactCut(G, TR.flow));
+  RESULTS = [['Initial (greedy)', Q1, t1], ['Improved (local search)', Q2, t2], ['Exact cut (lower bound)', Q3, t3]]
+    .map(([name, Q, ms]) => ({ name, Q, ms, cost: totalCost(G, Q), svc: service(G, Q) }));
+  head('Result');
+  const [r1, r2, r3] = RESULTS;
+  say(r1.cost ? `Local search lowered the cost from <b>${r1.cost}</b> to <b>${r2.cost}</b> (${(100 * (r1.cost - r2.cost) / r1.cost).toFixed(0)}% less). The exact lower bound is <b>${r3.cost}</b>.` : 'The initial solution already costs nothing, so there was nothing to improve.');
+  say(r2.svc >= G.demand ? `After quarantine the gateway can still push <b>${r2.svc}</b> Mbps to the critical hosts, which meets the demand of ${G.demand}.` : `After quarantine only <b>${r2.svc}</b> Mbps can still reach the critical hosts, below the demand of ${G.demand} (every missing Mbps adds 1 to the score).`);
+  if (PREV) {
+    const d = [];
+    if (PREV.h !== G.adj.size) d.push(`hosts ${PREV.h} → ${G.adj.size}`);
+    if (PREV.l !== links) d.push(`links ${PREV.l} → ${links}`);
+    const was = new Set(PREV.inf), now = new Set(G.infected);
+    const newly = G.infected.filter(h => !was.has(h)), cured = PREV.inf.filter(h => !now.has(h));
+    if (newly.length) d.push(`newly infected: ${newly.map(esc).join(', ')}`);
+    if (cured.length) d.push(`marked clean: ${cured.map(esc).join(', ')}`);
+    say(`Since your last edit: ${d.join(', ') || 'same number of hosts and links'}; initial cost ${PREV.c1} → ${r1.cost}, improved cost ${PREV.c2} → ${r2.cost}.`);
+  }
+  SUM = `Improved cut set: <b>${[...r2.Q].map(esc).join(', ') || 'none'}</b> (cost ${r2.cost}).`;
+  if (PREV) {
+    const add = [...r2.Q].filter(h => !PREV.Q2.has(h)), rem = [...PREV.Q2].filter(h => !r2.Q.has(h));
+    SUM += add.length || rem.length
+      ? ` The cut set changed: ${add.length ? 'now also cutting ' + add.map(esc).join(', ') : ''}${add.length && rem.length ? '; ' : ''}${rem.length ? 'no longer cutting ' + rem.map(esc).join(', ') : ''}.`
+      : ' The cut set did not change.';
+  }
+  PREV = { h: G.adj.size, l: links, c1: r1.cost, c2: r2.cost, Q2: r2.Q, inf: [...G.infected] };
+  POS = layout(G);
+  table(); draw();
+  document.getElementById('log').innerHTML = LOG.join('');
+  document.getElementById('sim').innerHTML = `${SUM} Press a &#9654; button above to watch an algorithm spread the infection and cut links.`;
+}
+// the form fields are turned into the same text format that parse() reads
+const val = id => document.getElementById(id).value;
+const names = s => s.split(/[\s,;]+/).filter(Boolean).join(' ');
+function formText() {
+  const lines = [];
+  for (const t of val('costs').split(/[\s,;]+/).filter(Boolean)) {
+    const [h, c] = t.split('=');
+    if (c === undefined) throw new Error(`cost "${t}" should look like Core1=8`);
+    lines.push(`host ${h} ${c}`);
+  }
+  for (const l of val('links').split(/[,;\n]+/)) if (l.trim()) lines.push('link ' + l.trim());
+  lines.push('infected ' + names(val('inf')), 'critical ' + names(val('crit')), 'gateway ' + names(val('gw')), 'demand ' + (val('dem') || 0));
+  return lines.join('\n');
+}
+function fill(g) {                         // put a parsed graph back into the form fields
+  const set = (id, v) => { document.getElementById(id).value = v; };
+  set('costs', [...g.cost].filter(([h, c]) => c !== 1 && !g.critical.includes(h)).map(([h, c]) => `${h}=${c}`).join(', '));
+  const L = [];
+  for (const [u, nb] of g.adj) for (const [v, c] of nb) if (u < v) L.push(`${u} ${v} ${c}`);
+  set('links', L.join(', '));
+  set('inf', g.infected.join(' ')); set('crit', g.critical.join(' '));
+  set('gw', g.gateway); set('dem', g.demand);
+}
+function randomText(depts) {              // a random layered enterprise network
+  const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1)), cores = ['Core1', 'Core2'], pcs = [];
+  const L = ['host Gateway 10', 'host Firewall 9', 'link Gateway Firewall 1000', 'host Database 0', 'host Payment 0', 'link Core1 Core2 1000'];
+  cores.forEach(c => L.push(`host ${c} ${r(7, 9)}`, `link Firewall ${c} 1000`));
+  ['App1', 'App2'].forEach(a => L.push(`host ${a} ${r(5, 7)}`, `link ${a} Core1 1000`, `link ${a} Core2 1000`, `link ${a} Database 1000`, `link ${a} Payment 1000`));
+  for (let d = 1; d <= depts; d++) {
+    L.push(`host Switch${d} ${r(3, 5)}`, `link Switch${d} ${cores[r(0, 1)]} 1000`);
+    if (Math.random() < 0.5) L.push(`link Switch${d} ${cores[r(0, 1)]} 1000`);
+    for (let i = 1; i <= 3; i++) {
+      const pc = `PC${d}.${i}`; pcs.push(pc);
+      L.push(`host ${pc} ${r(1, 3)}`, `link ${pc} Switch${d} 100`);
+      if (d > 1 && Math.random() < 0.25) L.push(`link ${pc} Switch${r(1, d - 1)} 100`);
+    }
+  }
+  const bad = [pcs.splice(r(0, pcs.length - 1), 1)[0], pcs.splice(r(0, pcs.length - 1), 1)[0]];
+  bad.forEach(p => L.push(`host ${p} ${r(6, 9)}`));      // infected machines are costly to take offline
+  L.push(`infected ${bad.join(' ')}`, 'critical Database Payment', 'gateway Gateway', 'demand 600');
+  return L.join('\n');
+}
+// ---------- 7. simulation: each algorithm spreads from the infected hosts and cuts links ----------
+let TR = { moves: [], flow: [] }, SUM = '', SIM = 0, PLAYING = false, ENDPICK = 1;
+const ALGO = ['1 · Greedy (BFS)', '2 · Local search', '3 · Ford-Fulkerson min cut'];
+const B = h => `<b>${esc(h)}</b>`;
+const mk = (algo, Q, o) => Object.assign({ algo, Q: new Set(Q), wave: new Set(), probe: [], path: null, flash: [], ms: 600, text: '' }, o);
+
+function bfsLayers(g, Q, stopAtCritical) {            // BFS from all live infected hosts, ring by ring
+  const parent = new Map();
+  let layer = g.infected.filter((h, i, a) => !Q.has(h) && a.indexOf(h) === i);
+  layer.forEach(h => parent.set(h, null));
+  const layers = [layer];
+  while (layer.length && !(stopAtCritical && layer.some(h => g.critical.includes(h)))) {
+    const next = [];
+    for (const u of layer) for (const v of g.adj.get(u).keys()) if (!Q.has(v) && !parent.has(v)) { parent.set(v, u); next.push(v); }
+    if (!next.length) break;
+    layers.push(next); layer = next;
+  }
+  return { layers, parent };
+}
+function probes(g, Q, L, parent, i) {                    // links the infection tries this ring; links into quarantined hosts are blocked
+  const p = [];
+  if (i) L.forEach(h => p.push([parent.get(h), h, 'go']));
+  L.forEach(u => { for (const v of g.adj.get(u).keys()) if (Q.has(v)) p.push([u, v, 'blocked']); });
+  return p;
+}
+function confineFrames(g, Q, algo, label) {              // final check: the infection spreads and stops at the cuts
+  const { layers, parent } = bfsLayers(g, Q, false), wave = new Set(), F = [];
+  layers.forEach((L, i) => {
+    L.forEach(h => wave.add(h));
+    const pr = probes(g, Q, L, parent, i);
+    F.push(mk(algo, Q, { wave: new Set(wave), probe: pr, ms: 380,
+      text: `Checking ${label}: infection spreads to ring ${i} (${wave.size} host${wave.size === 1 ? '' : 's'} so far)${pr.some(x => x[2] === 'blocked') ? ' and bumps into cut links' : ''}.` }));
+  });
+  const bad = g.critical.some(c => wave.has(c));
+  F.push(mk(algo, Q, { wave, ms: 1200, text: bad ? '<b class="no">A critical host is still exposed.</b>' : `Infection stays inside ${wave.size} host${wave.size === 1 ? '' : 's'}; no critical host can be reached.` }));
+  return F;
+}
+function traceGreedy(g) {
+  const A = 0, F = [], Q = new Set();
+  F.push(mk(A, Q, { ms: 1200, text: 'Each round: spread the infection with BFS until it touches a critical host, then cut the cheapest host on that route.' }));
+  for (let round = 1; ; round++) {
+    const { layers, parent } = bfsLayers(g, Q, true), wave = new Set();
+    layers.forEach((L, i) => {
+      L.forEach(h => wave.add(h));
+      F.push(mk(A, Q, { wave: new Set(wave), probe: probes(g, Q, L, parent, i), ms: 420,
+        text: `Round ${round}: BFS ring ${i}, infection reaches ${L.length} host${L.length === 1 ? '' : 's'} (${wave.size} in total).` }));
+    });
+    const hit = layers[layers.length - 1].find(h => g.critical.includes(h));
+    if (!hit) {
+      F.push(mk(A, Q, { wave, ms: 1200, text: round === 1 ? 'No infection route reaches a critical host, so nothing needs cutting.' : `Round ${round}: the infection can no longer reach a critical host. Greedy is done (cost ${totalCost(g, Q)}).` }));
+      return F;
+    }
+    const path = []; for (let x = hit; x !== null; x = parent.get(x)) path.unshift(x);
+    const pick = [...path].reverse().filter(h => !g.critical.includes(h)).sort((a, b) => g.cost.get(a) - g.cost.get(b))[0];
+    F.push(mk(A, Q, { wave, path, ms: 1100, text: `Route to ${B(hit)}: ${path.map(B).join(' → ')}. Cheapest host on it: ${B(pick)} (cost ${g.cost.get(pick)}).` }));
+    Q.add(pick);
+    F.push(mk(A, Q, { wave, path, flash: [{ h: pick, type: 'cut' }], ms: 1100, text: `Cutting ${B(pick)}: all of its links go down.` }));
+  }
+}
+function traceLocal(g, Q1, moves, Q2) {
+  const A = 1, F = []; let Q = new Set(Q1);
+  F.push(mk(A, Q, { ms: 1200, text: `Start from the greedy cut set (cost ${totalCost(g, Q)}). Try dropping a cut host or swapping it for another; keep a move only if the infection stays contained and the score falls.` }));
+  if (!moves.length) F.push(mk(A, Q, { ms: 1100, text: 'No drop or swap lowers the score, so the greedy set is already locally optimal.' }));
+  moves.forEach((m, i) => {
+    const o = m.out[0], n = m.inn[0];
+    F.push(mk(A, Q, { flash: [{ h: o, type: 'try' }].concat(n ? [{ h: n, type: 'try' }] : []), ms: 800,
+      text: n ? `Move ${i + 1}: try swapping ${B(o)} for ${B(n)}.` : `Move ${i + 1}: try dropping ${B(o)}.` }));
+    Q = m.to;
+    F.push(mk(A, Q, { flash: [{ h: o, type: 'restore' }].concat(n ? [{ h: n, type: 'cut' }] : []), ms: 1000,
+      text: `${n ? `${B(o)} is brought back online and ${B(n)} is cut` : `${B(o)} is brought back online`}. Still contained, score ${m.before} → ${m.after}.` }));
+  });
+  return F.concat(confineFrames(g, Q2, A, 'the improved set'));
+}
+function traceExact(g, log, cut) {
+  const A = 2, F = [], none = new Set();
+  F.push(mk(A, none, { ms: 1300, text: 'Every host becomes a pipe whose capacity is its isolation cost. Push flow from the infected hosts towards the critical hosts (Ford-Fulkerson); the pipes that fill up form the cheapest cut.' }));
+  log.slice(0, 8).forEach((p, i) => {
+    const hosts = p.path.filter(n => typeof n === 'string' && n.endsWith('#in')).map(n => n.slice(0, -3));
+    F.push(mk(A, none, { path: hosts, ms: 950, text: `Augmenting path ${i + 1} of ${log.length}: ${hosts.map(B).join(' → ')} carries ${p.b} unit${p.b === 1 ? '' : 's'}.` }));
+  });
+  if (log.length > 8) F.push(mk(A, none, { ms: 900, text: `${log.length - 8} more augmenting paths follow, until no path is left.` }));
+  F.push(mk(A, cut, { flash: [...cut].map(h => ({ h, type: 'cut' })), ms: 1300,
+    text: cut.size ? `No path is left. The full pipes are the minimum cut: ${[...cut].map(B).join(', ')} (cost ${totalCost(g, cut)}).` : 'No path is left, so nothing needs cutting.' }));
+  return F.concat(confineFrames(g, cut, A, 'the exact cut'));
+}
+function stopSim() { SIM++; PLAYING = false; }
+function endSim() {
+  stopSim(); PICK = ENDPICK; table(); draw();
+  const r = RESULTS[PICK];
+  document.getElementById('sim').innerHTML = `<b>Finished.</b> ${r.name} cuts <b>${[...r.Q].map(esc).join(', ') || 'nothing'}</b> (cost ${r.cost}).${PICK === 1 ? ' ' + SUM.replace('Improved cut set: ', 'Compared with before: ').replace(/^.*?\)\.\s*/, '') : ''}`;
+}
+function startSim(which) {
+  stopSim();
+  const sim = document.getElementById('sim');
+  if (!G.infected.length) { PICK = 1; table(); draw(); sim.textContent = 'No host is infected, so there is nothing to cut. Click a host to infect it.'; return; }
+  const [r1, r2, r3] = RESULTS;
+  const all = [traceGreedy(G), traceLocal(G, r1.Q, TR.moves, r2.Q), traceExact(G, TR.flow, r3.Q)];
+  const idx = which === 'all' || which === undefined ? [0, 1, 2] : [+which];
+  const frames = idx.flatMap(k => all[k]);
+  ENDPICK = idx.length === 3 ? 1 : idx[0];
+  const my = ++SIM; PLAYING = true; let i = 0;
+  const step = () => {
+    if (my !== SIM) return;
+    if (i >= frames.length) { endSim(); return; }
+    const f = frames[i++];
+    if (PICK !== f.algo) { PICK = f.algo; table(); }
+    draw(f);
+    sim.innerHTML = `<b>${ALGO[f.algo]}</b> · step ${i}/${frames.length}: ${f.text}`;
+    setTimeout(step, f.ms * +document.getElementById('speed').value);
+  };
+  step();
+}
+// click a host to flip it between infected and clean
+function toggleHost(h) {
+  if (document.getElementById('err').textContent) return;           // input is invalid right now
+  if (!canClick(h)) return;                                         // only PCs can be infected
+  if (G.critical.includes(h)) { document.getElementById('sim').textContent = `${h} is a critical host and cannot be infected. Remove it from the Critical field first if you want to infect it.`; return; }
+  const set = new Set(G.infected);
+  set.has(h) ? set.delete(h) : set.add(h);
+  document.getElementById('inf').value = [...set].join(' ');
+  run();
+}
+const svg = document.getElementById('g');
+svg.addEventListener('click', e => { const t = e.target.closest('[data-h]'); if (t) toggleHost(t.dataset.h); });
+svg.addEventListener('keydown', e => { const t = e.target.closest('[data-h]'); if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleHost(t.dataset.h); } });
+document.querySelectorAll('[data-play]').forEach(b => b.onclick = () => startSim(b.dataset.play));
+document.getElementById('skip').onclick = () => { if (PLAYING) endSim(); };
+
+let timer;
+document.querySelectorAll('.f input, .f textarea').forEach(el => el.oninput = () => { clearTimeout(timer); timer = setTimeout(run, 250); });
+const load = text => { fill(parse(text)); run(); };
+document.getElementById('sample').onclick = () => load(SAMPLE);
+document.getElementById('rand').onclick = () => load(randomText(+val('size')));
+document.getElementById('clear').onclick = () => {
+  stopSim();
+  document.querySelectorAll('.f input, .f textarea').forEach(el => { el.value = ''; });
+  document.getElementById('err').textContent = 'fill in the fields, or load a sample or random network';
+};
+load(SAMPLE);
+</script>
+</body>
+</html>
